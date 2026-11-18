@@ -1,0 +1,187 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "freellmapi/auto",
+  "default_agent": "build",
+  "permissions": [
+    {
+      "action": "shell",
+      "resource": "*",
+      "effect": "ask"
+    },
+    {
+      "action": "edit",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "subagent",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "skill",
+      "resource": "*",
+      "effect": "allow"
+    }
+  ],
+  "skills": [
+    ".opencode/skills",
+    "~/.config/opencode/skills"
+  ],
+  "agents": {
+    "build": {
+      "description": "Lead orchestrator — requirements, coordination, delegation, integration, verification",
+      "mode": "primary",
+      "model": "freellmapi/gemini-3.8-flash",
+      "permissions": [
+        {
+          "action": "shell",
+          "resource": "npm *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "node *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "git *",
+          "effect": "allow"
+        }
+      ]
+    },
+    "architect": {
+      "description": "System architect — technical design, module boundaries, ADRs, implementation planning",
+      "mode": "subagent",
+      "model": "freellmapi/glm-4.7-flash",
+      "permissions": [
+        { "action": "read", "resource": "*", "effect": "allow" },
+        { "action": "edit", "resource": "docs/architecture/**", "effect": "allow" },
+        { "action": "edit", "resource": "docs/adr/**", "effect": "allow" },
+        { "action": "glob", "resource": "*", "effect": "allow" },
+        { "action": "grep", "resource": "*", "effect": "allow" },
+        { "action": "skill", "resource": "*", "effect": "allow" }
+      ]
+    },
+    "frontend-developer": {
+      "description": "Frontend specialist — React + TypeScript, component architecture, UI implementation, state management, accessibility",
+      "mode": "subagent",
+      "model": "freellmapi/gemini-2.5-flash",
+      "permissions": [
+        { "action": "read", "resource": "*", "effect": "allow" },
+        { "action": "edit", "resource": "client/**", "effect": "allow" },
+        { "action": "edit", "resource": "docs/development/**", "effect": "allow" },
+        { "action": "glob", "resource": "*", "effect": "allow" },
+        { "action": "grep", "resource": "*", "effect": "allow" },
+        { "action": "shell", "resource": "npm *", "effect": "allow" },
+        { "action": "shell", "resource": "npx *", "effect": "allow" },
+        { "action": "skill", "resource": "*", "effect": "allow" }
+      ]
+    },
+    "backend-developer": {
+      "description": "Backend specialist — Express + TypeScript, REST API, business logic, validation, auth integration, error handling",
+      "mode": "subagent",
+      "model": "freellmapi/gemini-3.8-flash",
+      "permissions": [
+        { "action": "read", "resource": "*", "effect": "allow" },
+        { "action": "edit", "resource": "server/**", "effect": "allow" },
+        { "action": "edit", "resource": "docs/api/**", "effect": "allow" },
+        { "action": "edit", "resource": "docs/development/**", "effect": "allow" },
+        { "action": "glob", "resource": "*", "effect": "allow" },
+        { "action": "grep", "resource": "*", "effect": "allow" },
+        { "action": "shell", "resource": "npm *", "effect": "allow" },
+        { "action": "shell", "resource": "node *", "effect": "allow" },
+        { "action": "shell", "resource": "npx *", "effect": "allow" },
+        { "action": "skill", "resource": "*", "effect": "allow" }
+      ]
+    },
+    "database-engineer": {
+      "description": "Database engineer — PostgreSQL schema, migrations, queries, constraints, indexes, transaction safety",
+      "mode": "subagent",
+      "model": "freellmapi/gemini-3.8-flash",
+      "permissions": [
+        { "action": "read", "resource": "*", "effect": "allow" },
+        { "action": "edit", "resource": "server/schema/**", "effect": "allow" },
+        { "action": "edit", "resource": "server/migrations/**", "effect": "allow" },
+        { "action": "edit", "resource": "docs/database/**", "effect": "allow" },
+        { "action": "glob", "resource": "*", "effect": "allow" },
+        { "action": "grep", "resource": "*", "effect": "allow" },
+        { "action": "shell", "resource": "psql *", "effect": "allow" },
+        { "action": "shell", "resource": "npm *", "effect": "allow" },
+        { "action": "skill", "resource": "*", "effect": "allow" }
+      ]
+    },
+    "debugger": {
+      "description": "Debugger — systematic root-cause analysis, reproduce bugs, trace frontend/backend/database failures",
+      "mode": "subagent",
+      "model": "freellmapi/gemini-3.8-flash",
+      "permissions": [
+        { "action": "read", "resource": "*", "effect": "allow" },
+        { "action": "edit", "resource": "*", "effect": "allow" },
+        { "action": "glob", "resource": "*", "effect": "allow" },
+        { "action": "grep", "resource": "*", "effect": "allow" },
+        { "action": "shell", "resource": "*", "effect": "allow" },
+        { "action": "skill", "resource": "*", "effect": "allow" }
+      ]
+    },
+    "qa-engineer": {
+      "description": "QA Engineer — unit, integration, E2E testing, regression testing, acceptance criteria, test reports",
+      "mode": "subagent",
+      "model": "freellmapi/gemini-2.5-flash",
+      "permissions": [
+        { "action": "read", "resource": "*", "effect": "allow" },
+        { "action": "edit", "resource": "server/tests/**", "effect": "allow" },
+        { "action": "edit", "resource": "client/tests/**", "effect": "allow" },
+        { "action": "edit", "resource": "server/package.json", "effect": "allow" },
+        { "action": "edit", "resource": "client/package.json", "effect": "allow" },
+        { "action": "edit", "resource": "server/jest.config.js", "effect": "allow" },
+        { "action": "edit", "resource": "client/jest.config.js", "effect": "allow" },
+        { "action": "edit", "resource": "server/playwright.config.ts", "effect": "allow" },
+        { "action": "edit", "resource": "client/playwright.config.ts", "effect": "allow" },
+        { "action": "glob", "resource": "*", "effect": "allow" },
+        { "action": "grep", "resource": "*", "effect": "allow" },
+        { "action": "shell", "resource": "npm test*", "effect": "allow" },
+        { "action": "shell", "resource": "npx jest*", "effect": "allow" },
+        { "action": "shell", "resource": "npx playwright*", "effect": "allow" },
+        { "action": "skill", "resource": "*", "effect": "allow" }
+      ]
+    },
+    "code-reviewer": {
+      "description": "Code Reviewer — independent review, security, maintainability, correctness, performance, architectural compliance",
+      "mode": "subagent",
+      "model": "freellmapi/glm-4.7-flash",
+      "permissions": [
+        { "action": "read", "resource": "*", "effect": "allow" },
+        { "action": "glob", "resource": "*", "effect": "allow" },
+        { "action": "grep", "resource": "*", "effect": "allow" },
+        { "action": "skill", "resource": "*", "effect": "allow" }
+      ]
+    },
+    "documenter": {
+      "description": "Documenter — README, architecture, database, API, development guides, changelog",
+      "mode": "subagent",
+      "model": "freellmapi/gemini-2.5-flash",
+      "permissions": [
+        { "action": "read", "resource": "*", "effect": "allow" },
+        { "action": "edit", "resource": "docs/**", "effect": "allow" },
+        { "action": "edit", "resource": "README.md", "effect": "allow" },
+        { "action": "edit", "resource": "CHANGELOG.md", "effect": "allow" },
+        { "action": "glob", "resource": "*", "effect": "allow" },
+        { "action": "grep", "resource": "*", "effect": "allow" },
+        { "action": "skill", "resource": "*", "effect": "allow" }
+      ]
+    },
+    "planner": {
+      "description": "Project planner — scope management, implementation plans, sprint milestones",
+      "mode": "subagent",
+      "model": "freellmapi/gemma-4-31b-it",
+      "permissions": [
+        { "action": "read", "resource": "*", "effect": "allow" },
+        { "action": "glob", "resource": "*", "effect": "allow" },
+        { "action": "grep", "resource": "*", "effect": "allow" },
+        { "action": "skill", "resource": "*", "effect": "allow" }
+      ]
+    }
+  }
+}
