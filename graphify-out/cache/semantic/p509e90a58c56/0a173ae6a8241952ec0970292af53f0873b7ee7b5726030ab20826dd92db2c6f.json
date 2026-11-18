@@ -1,0 +1,1 @@
+{"nodes": [{"id": "opencode_agents_planner", "label": "Planner Agent", "file_type": "code", "source_file": ".opencode/agents/planner.md", "rationale": "Manages project scope, implementation plans, and sprint milestones.", "_origin": "semantic"}], "edges": [], "hyperedges": []}

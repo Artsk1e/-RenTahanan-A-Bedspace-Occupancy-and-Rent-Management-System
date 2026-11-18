@@ -1,0 +1,1 @@
+{"nodes": [{"id": "opencode_agents_qa_engineer", "label": "QA Engineer Agent", "file_type": "code", "source_file": ".opencode/agents/qa-engineer.md", "rationale": "Owns test infrastructure and executes tests at all levels.", "_origin": "semantic"}], "edges": [], "hyperedges": []}
