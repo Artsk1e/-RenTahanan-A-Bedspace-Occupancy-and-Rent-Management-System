@@ -23,7 +23,7 @@ erDiagram
     TENANTS ||--o{ PAYMENTS : "tenant_id (1:N) CASCADE"
 
     CONTRACTS ||--|{ BILLING_STATEMENTS : "contract_id (1:N) CASCADE"
-    CONTRACTS ||--o{ PAYMENTS : "billing_statement_id (N:1) SET NULL"
+    BILLING_STATEMENTS ||--o{ PAYMENTS : "billing_statement_id (N:1) SET NULL"
 
     USERS {
         integer user_id PK
@@ -320,7 +320,7 @@ TENANTS ||--o{ CONTRACTS
 TENANTS ||--o{ BILLING_STATEMENTS
 TENANTS ||--o{ PAYMENTS
 CONTRACTS ||--|{ BILLING_STATEMENTS
-CONTRACTS ||--o{ PAYMENTS
+BILLING_STATEMENTS ||--o{ PAYMENTS
 @enduml
 ```
 

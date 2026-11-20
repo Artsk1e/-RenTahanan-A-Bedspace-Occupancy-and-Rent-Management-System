@@ -41,6 +41,7 @@
 - Added `room_status` enum: `ACTIVE`, `UNDER_MAINTENANCE`, `DECOMMISSIONED`
 - Added `rooms.status room_status DEFAULT 'ACTIVE'`
 - Added `UNAVAILABLE` to `bed_status` enum
+- **Normalized Payment relationships:** Removed redundant `CONTRACTS ||--o{ PAYMENTS` link; Payments now link only to `TENANTS` and `BILLING_STATEMENTS` (nullable for walk-ins)
 - Updated PlantUML and Mermaid diagrams
 - Updated verification checklist to 7 enums
 
@@ -122,9 +123,9 @@
 | **Tenants** | `tenants` table, `tenant_status` enum | `Tenant` entity + `TenantStatus` enum | `Tenant` class + `TenantStatus` enum |
 | **Contracts** | `contracts` table, `contract_status` enum, `created_by_user_id` FK | `Contract` entity + `createdByUserId`, `ContractService.moveOutClearance()` | `Contract` class + `moveOutClearance()` + deposit logic |
 | **Billing** | `billing_statements` table, `billing_status` enum | `BillingStatement` entity + `BillingStatus` enum | `BillingStatement` class + `BillingStatus` enum |
-| **Payments** | `payments` table, `logged_by_user_id` FK | `Payment` entity + `loggedByUserId` | `Payment` class |
+| **Payments** | `payments` table, `tenant_id` FK, `billing_statement_id` nullable FK | `Payment` entity + `tenantId` + `billingStatementId` (nullable) | `Payment` class (links to `Tenant` + `BillingStatement`) |
 | **Reports** | N/A (view layer) | `ReportService` + `ReportController` | N/A (conceptual) |
-| **Relationships** | All 10 FKs with correct cascade | All mapped in diagram + repository methods | All mapped with correct UML notation |
+| **Relationships** | All 9 FKs with correct cascade (normalized: no Contract→Payment) | All mapped in diagram + repository methods | All mapped with correct UML notation |
 
 ---
 
@@ -190,7 +191,7 @@
 
 | Diagram | Key Changes |
 |---------|-------------|
-| **ERD** | Added `room_status` enum + `rooms.status` column; Added `UNAVAILABLE` to `bed_status` enum; Updated PlantUML + Mermaid; Updated business rules section |
+| **ERD** | Added `room_status` enum + `rooms.status` column; Added `UNAVAILABLE` to `bed_status` enum; **Normalized Payment relationships** (removed redundant `CONTRACTS → PAYMENTS` link; Payments link only to `TENANTS` + `BILLING_STATEMENTS`); Updated PlantUML + Mermaid; Updated business rules section |
 | **Implementation Class Diagram** | Added `RoomStatus` enum + `Room.status`; Added `UNAVAILABLE` to `BedStatus`; Added `moveOutClearance()` + `forceTerminate()` + `MoveOutResult` to `ContractService`; Added `updateRoomStatus()` to `RoomService`; Added `ReportService` + `ReportController`; Removed DELETE endpoints for Rooms/Beds/Tenants; Updated sequence flows; Updated verification checklist |
 | **Conceptual Class Diagram** | Added `RoomStatus` enum + `Room.status` + `toggleStatus()`; Added `UNAVAILABLE` to `BedStatus`; Added `moveOutClearance()` + `forceTerminate()` to `Contract`; Added `Staff` operational methods; Restored original OOP explanation format; Documented composition-over-inheritance rationale |
 

@@ -3,6 +3,7 @@
 -- Client: Evelyn Lady's Dormitory
 -- Database: PostgreSQL
 -- Author: Papolonias (Backend & Database Lead)
+-- Updated: 2026-11-21 - Added room_status, bed_status.UNAVAILABLE, updated_at triggers
 -- ========================================================
 
 -- Drop existing tables/types if re-initializing (Clean slate)
@@ -16,6 +17,7 @@ DROP TABLE IF EXISTS users CASCADE;
 
 DROP TYPE IF EXISTS user_role CASCADE;
 DROP TYPE IF EXISTS room_type CASCADE;
+DROP TYPE IF EXISTS room_status CASCADE;
 DROP TYPE IF EXISTS bed_status CASCADE;
 DROP TYPE IF EXISTS tenant_status CASCADE;
 DROP TYPE IF EXISTS contract_status CASCADE;
@@ -26,7 +28,8 @@ DROP TYPE IF EXISTS billing_status CASCADE;
 -- ========================================================
 CREATE TYPE user_role AS ENUM ('OWNER', 'CARETAKER', 'TENANT');
 CREATE TYPE room_type AS ENUM ('SINGLE', 'DOUBLE', 'QUAD');
-CREATE TYPE bed_status AS ENUM ('VACANT', 'OCCUPIED', 'OVERDUE');
+CREATE TYPE room_status AS ENUM ('ACTIVE', 'UNDER_MAINTENANCE', 'DECOMMISSIONED');
+CREATE TYPE bed_status AS ENUM ('VACANT', 'OCCUPIED', 'OVERDUE', 'UNAVAILABLE');
 CREATE TYPE tenant_status AS ENUM ('ACTIVE', 'MOVED_OUT', 'FLAGGED_DEBT');
 CREATE TYPE contract_status AS ENUM ('ACTIVE', 'COMPLETED', 'TERMINATED');
 CREATE TYPE billing_status AS ENUM ('UNPAID', 'PAID', 'OVERDUE');
@@ -39,7 +42,8 @@ CREATE TABLE users (
     username VARCHAR(50) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
     role user_role NOT NULL DEFAULT 'TENANT',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- ========================================================
@@ -51,7 +55,9 @@ CREATE TABLE rooms (
     type room_type NOT NULL,
     capacity INT NOT NULL,
     floor_level INT NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    status room_status NOT NULL DEFAULT 'ACTIVE',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- ========================================================
@@ -63,7 +69,8 @@ CREATE TABLE beds (
     bed_code VARCHAR(15) UNIQUE NOT NULL,
     -- e.g., 'R101-A', 'R101-B'
     status bed_status NOT NULL DEFAULT 'VACANT',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- ========================================================
@@ -78,7 +85,8 @@ CREATE TABLE tenants (
     contact_number VARCHAR(15) NOT NULL,
     emergency_contact VARCHAR(15) NOT NULL,
     status tenant_status NOT NULL DEFAULT 'ACTIVE',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- ========================================================
@@ -97,7 +105,8 @@ CREATE TABLE contracts (
     advance_rent_paid NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
     deposit_paid NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
     status contract_status NOT NULL DEFAULT 'ACTIVE',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- ========================================================
@@ -113,7 +122,8 @@ CREATE TABLE billing_statements (
     status billing_status NOT NULL DEFAULT 'UNPAID',
     overdue_warning_count INT NOT NULL DEFAULT 0,
     eviction_eligible_date DATE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- ========================================================
@@ -129,19 +139,63 @@ CREATE TABLE payments (
     or_number VARCHAR(50) UNIQUE NOT NULL,
     -- Mandatory Official Receipt Number
     payment_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    remarks TEXT
+    remarks TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- ========================================================
--- 9. PERFORMANCE INDEXES
+-- 9. AUDIT TRIGGERS (updated_at auto-update on all tables)
 -- ========================================================
-CREATE INDEX idx_beds_status ON beds(status);
-CREATE INDEX idx_billing_status ON billing_statements(status);
-CREATE INDEX idx_payments_or ON payments(or_number);
-CREATE INDEX idx_contracts_tenant ON contracts(tenant_id);
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_rooms_updated_at BEFORE UPDATE ON rooms
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_beds_updated_at BEFORE UPDATE ON beds
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_tenants_updated_at BEFORE UPDATE ON tenants
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_contracts_updated_at BEFORE UPDATE ON contracts
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_billing_statements_updated_at BEFORE UPDATE ON billing_statements
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_payments_updated_at BEFORE UPDATE ON payments
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- ========================================================
--- 10. INITIAL TEST SEED DATA (For Local Testing)
+-- 10. PERFORMANCE INDEXES
+-- ========================================================
+CREATE INDEX idx_beds_status ON beds(status);
+CREATE INDEX idx_beds_room_id ON beds(room_id);
+CREATE INDEX idx_billing_status ON billing_statements(status);
+CREATE INDEX idx_billing_tenant_id ON billing_statements(tenant_id);
+CREATE INDEX idx_billing_contract_id ON billing_statements(contract_id);
+CREATE INDEX idx_billing_due_date ON billing_statements(due_date);
+CREATE INDEX idx_payments_or ON payments(or_number);
+CREATE INDEX idx_payments_tenant_id ON payments(tenant_id);
+CREATE INDEX idx_payments_billing_statement_id ON payments(billing_statement_id);
+CREATE INDEX idx_contracts_tenant ON contracts(tenant_id);
+CREATE INDEX idx_contracts_bed ON contracts(bed_id);
+CREATE INDEX idx_contracts_status ON contracts(status);
+CREATE INDEX idx_rooms_status ON rooms(status);
+CREATE INDEX idx_tenants_status ON tenants(status);
+
+-- ========================================================
+-- 11. INITIAL TEST SEED DATA (For Local Testing)
 -- ========================================================
 -- Create Default Staff Users
 INSERT INTO users (username, password_hash, role)
