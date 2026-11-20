@@ -87,7 +87,7 @@ Derived from user stories and acceptance criteria:
 | Req ID | Requirement | Source |
 |--------|-------------|--------|
 | FR-04.1 | Auto-calculate outstanding balance per tenant: Σ(amount_due) - Σ(amount_paid for linked bills) | US-07 |
-| FR-04.2 | Flag tenant as **Overdue** when `due_date` passed and status = `UNPAID` | US-07 |
+| FR-04.2 | Flag **billing statement** as `OVERDUE` when `due_date` passed and status = `UNPAID`; set bed status to `OVERDUE`; increment `overdue_warning_count`; set `eviction_eligible_date = due_date + 3 months`. **Tenant status remains `ACTIVE` during tenancy — only billing/bed status change.** | US-07 |
 | FR-04.3 | Increment `overdue_warning_count` weekly; set `eviction_eligible_date = due_date + 3 months` | US-07 |
 | FR-04.4 | Bed status → `OVERDUE` when linked billing is overdue | US-07 |
 | FR-04.5 | Prevent hidden unpaid balances — all balances visible on dashboard | US-07 |
@@ -95,27 +95,31 @@ Derived from user stories and acceptance criteria:
 ### FR-05: Move-Out Clearance & Deposit Reconciliation
 | Req ID | Requirement | Source |
 |--------|-------------|--------|
-| FR-05.1 | On move-out initiation: cross-check all historical unpaid balances | US-09 |
-| FR-05.2 | Auto-deduct owed amounts from 1-month security deposit | US-09 |
-| FR-05.3 | Refund excess or collect shortfall before final clearance | US-09 |
-| FR-05.4 | Update tenant status → `MOVED_OUT` or `FLAGGED_DEBT` | US-09 |
-| FR-05.5 | Pay-before-leave rule: cannot terminate contract if `UNPAID`/`OVERDUE` billings exist | US-09 |
+| FR-05.1 | On move-out initiation: calculate total outstanding balance across all billing statements (Σ amount_due - Σ amount_paid) | US-09 |
+| FR-05.2 | Apply 1-month security deposit (`contracts.deposit_paid`) to outstanding balance | US-09 |
+| FR-05.3 | If deposit ≥ outstanding balance: set tenant status = `MOVED_OUT`, refund excess (deposit - balance) | US-09 |
+| FR-05.4 | If deposit < outstanding balance: set tenant status = `FLAGGED_DEBT`, record remaining debt for evasion tracking | US-09 |
+| FR-05.5 | Pay-before-leave rule: **normal** contract termination blocked if any `UNPAID`/`OVERDUE` billing exists | US-09 |
+| FR-05.6 | Forced move-out (eviction after `eviction_eligible_date`, abandonment, or owner decision): owner can override with deposit reconciliation per FR-05.1–5.4 | US-09 |
 
 ### FR-06: Role-Based Access Control (RBAC)
 | Req ID | Requirement | Source |
 |--------|-------------|--------|
-| FR-06.1 | **OWNER**: Full access — users, rooms, beds, tenants, contracts, billing, payments, audit reports | US-10 |
-| FR-06.2 | **CARETAKER**: Restricted — cash collection, OR logging, tenant registration, bed assignment only | US-10 |
+| FR-06.1 | **OWNER**: View all dashboards/reports; approve move-out clearances; generate financial/occupancy reports; manage room/bed **status** (ACTIVE/UNDER_MAINTENANCE/DECOMMISSIONED); manage users; view audit trails | US-10 |
+| FR-06.2 | **CARETAKER**: Daily operations — tenant registration, bed assignment (contract create), payment logging (OR), billing generation, overdue check, room/bed **status toggle** (ACTIVE/UNAVAILABLE), move-out execution (with deposit reconciliation) | US-10 |
 | FR-06.3 | **TENANT**: Read-only portal — own profile, contract, billings, payment history | US-03, US-05, US-09 |
 | FR-06.4 | JWT authentication with role claims | US-10 |
 | FR-06.5 | Route-level middleware enforces permissions (403 for unauthorized) | US-10 |
+| FR-06.6 | **Tenants never deleted** — lifecycle via status: `ACTIVE` → `MOVED_OUT` or `FLAGGED_DEBT` | US-09 |
+| FR-06.7 | **Rooms/beds never deleted by users** — managed via status toggles; hard delete = developer migration only | — |
 
 ### FR-07: Evasion Flagging & Re-registration Block
 | Req ID | Requirement | Source |
 |--------|-------------|--------|
-| FR-07.1 | On tenant registration: cross-check against historical unpaid balances (`FLAGGED_DEBT` tenants) | US-12 |
-| FR-07.2 | Auto-flag if prior unpaid debts exist ("gansi") | US-12 |
-| FR-07.3 | Block re-registration or new contract until debts settled | US-12 |
+| FR-07.1 | On tenant registration: cross-check against tenants with status = `FLAGGED_DEBT` | US-12 |
+| FR-07.2 | If `FLAGGED_DEBT` tenant has remaining unsettled debt → block registration | US-12 |
+| FR-07.3 | If `FLAGGED_DEBT` tenant settles debt → allow registration, update status to `ACTIVE` | US-12 |
+| FR-07.4 | **FLAGGED_DEBT is set only on move-out/eviction** when deposit is insufficient to cover outstanding balance (per FR-05.4); **not** set during tenancy for overdue bills | US-12 |
 
 ---
 
@@ -184,9 +188,16 @@ Derived from user stories and acceptance criteria:
 - **Then** the system generates a printable or downloadable digital receipt containing the OR number, amount paid, remaining balance, and tenant signature confirmation
 
 ### US-09: Move-Out Clearance and Contract Deposit Reconciliation
-- **Given** a student is moving out at the end of the semester
+- **Given** a student is moving out at the end of the semester (normal) or being evicted (forced)
 - **When** the caretaker initiates the check-out process
-- **Then** the system cross-checks all historical unpaid balances and contract terms, automatically deducting owed amounts from the 1-month deposit before issuing final clearance
+- **Then** the system:
+  1. Calculates total outstanding balance across all billing statements
+  2. Applies 1-month security deposit to the balance
+  3. If deposit ≥ balance: sets tenant status = `MOVED_OUT`, refunds excess
+  4. If deposit < balance: sets tenant status = `FLAGGED_DEBT`, records remaining debt
+  5. Updates contract status = `TERMINATED`, bed status = `VACANT`
+  5. **Normal move-out**: blocked if any `UNPAID`/`OVERDUE` billings exist (pay-before-leave)
+  6. **Forced move-out** (eviction/abandonment): owner can override with deposit reconciliation
 
 ### US-10: Role-Based Caretaker Cash Entry vs Landlord Review
 - **Given** a caretaker logs into the application
@@ -199,9 +210,12 @@ Derived from user stories and acceptance criteria:
 - **Then** the system requires a tenant digital signature or acknowledgement check mark before finalizing the transaction entry into the ledger
 
 ### US-12: Evasion Flagging
-- **Given** a tenant attempts to register or check out
-- **When** the system cross-checks their account history against unpaid balance records
-- **Then** it automatically flags any prior unpaid debts ("gansi") to prevent unresolved lease departures or re-registration
+- **Given** a tenant attempts to register
+- **When** the system cross-checks their account history against `tenants` with status = `FLAGGED_DEBT`
+- **Then**:
+  - If `FLAGGED_DEBT` tenant has remaining unsettled debt → block registration (return 409)
+  - If `FLAGGED_DEBT` tenant settles debt → allow registration, update status to `ACTIVE`
+  - **Note**: `FLAGGED_DEBT` is only set on move-out/eviction when deposit is insufficient (FR-05.4), not during tenancy for overdue bills
 
 ---
 
@@ -330,7 +344,7 @@ BACKLOG → TO DO → IN PROGRESS → REVIEW/TESTING → DONE
 | **Contracts** | ✅ Complete | Transactional create + terminate with bed locking |
 | **Billing** | ✅ Complete | Generate statements, **new**: `checkOverdue` endpoint |
 | **Payments** | ✅ Complete | OR uniqueness, **new**: exact payment enforcement |
-| **Move-Out Clearance** | ✅ Complete | **New**: pay-before-leave validation in `terminateContract` |
+| **Move-Out Clearance** | ⚠️ Partial | Pay-before-leave validation in `terminateContract`; **Missing**: deposit reconciliation, tenant status update (MOVED_OUT/FLAGGED_DEBT), forced move-out override |
 | **Overdue Tracking** | ✅ Complete | **New**: `overdue_warning_count`, `eviction_eligible_date`, weekly check endpoint |
 | **Tenant Portal (US-03, US-05)** | ❌ Not Started | Frontend only |
 | **Digital Receipts (US-08)** | ❌ Not Started | PDF generation + signature capture |
@@ -352,10 +366,10 @@ BACKLOG → TO DO → IN PROGRESS → REVIEW/TESTING → DONE
 | **US-06** | FR-03.1, FR-03.2, FR-03.3, FR-03.4, FR-03.5<br>NFR-03, NFR-05, NFR-07, NFR-13 | AC-06: Caretaker logs cash payment with OR# → balance updated, OR unique<br>Test: Exact amount required (400 if due=400); duplicate OR# rejected 409; walk-in (null billing_id) allowed | ERD: `payments`, `billing_statements`<br>Class Diagram: `Payment`, `BillingStatement`<br>Sequence: POST /api/payments → verify OR → update status |
 | **US-07** | FR-04.1, FR-04.2, FR-04.3, FR-04.4, FR-04.5<br>NFR-04, NFR-13 | AC-07: Overdue flagged when due_date passed; warning count++; eviction_eligible_date set<br>Test: POST /api/billing/check-overdue increments count weekly; bed status=OVERDUE; dashboard shows all | ERD: `billing_statements`, `beds`<br>Class Diagram: `BillingStatement.markOverdue()`<br>Sequence: Weekly cron → check-overdue → update beds |
 | **US-08** | FR-03.6, FR-03.7<br>NFR-01, NFR-03, NFR-13 | AC-08: Digital receipt generated with OR#, amount, balance, tenant signature<br>Test: Signature/acknowledgement required before finalize; PDF downloadable; OR# on receipt | ERD: `payments` (signature field)<br>Class Diagram: `Payment`<br>Wireframe: DigitalReceiptGenerator, SignatureCapture |
-| **US-09** | FR-05.1, FR-05.2, FR-05.3, FR-05.4, FR-05.5<br>NFR-09, NFR-11, NFR-13 | AC-09: Move-out cross-checks unpaid balances; deducts from deposit; pay-before-leave enforced<br>Test: DELETE /api/contracts/:id fails 400 if UNPAID/OVERDUE billings exist; deposit calc correct; status=MOVED_OUT or FLAGGED_DEBT | ERD: `contracts`, `billing_statements`, `tenants`<br>Class Diagram: `ContractService.checkPayBeforeLeave()`<br>Sequence: MoveOutClearanceFlow → validate → update status |
+| **US-09** | FR-05.1, FR-05.2, FR-05.3, FR-05.4, FR-05.5, FR-05.6<br>NFR-09, NFR-11, NFR-13 | AC-09: Move-out cross-checks unpaid balances; deducts from deposit; pay-before-leave enforced; forced move-out with deposit reconciliation<br>Test: Normal termination fails 400 if UNPAID/OVERDUE; deposit calc correct; status=MOVED_OUT or FLAGGED_DEBT; forced move-out applies same reconciliation | ERD: `contracts`, `billing_statements`, `tenants`<br>Class Diagram: `ContractService.checkPayBeforeLeave()`, `moveOutClearance()`<br>Sequence: MoveOutClearanceFlow → validate → deposit reconciliation → update status |
 | **US-10** | FR-06.1, FR-06.2, FR-06.4, FR-06.5<br>NFR-06, NFR-08 | AC-10: Caretaker sees only cash/OR entry; Owner sees full ledger config<br>Test: JWT role middleware; 403 for CARETAKER on owner routes; 403 for TENANT on all write | ERD: `users` (role)<br>Class Diagram: `AuthService`, middleware/auth<br>Sequence: All routes → auth(['ROLE']) |
 | **US-11** | FR-03.7 (signature capture)<br>NFR-01, NFR-03, NFR-13 | AC-11: Tenant digital signature/acknowledgement required before finalizing payment entry<br>Test: POST /api/payments fails 400 without signature field; mobile touch-friendly | ERD: `payments` (signature field)<br>Class Diagram: `Payment`<br>Wireframe: SignatureCapture |
-| **US-12** | FR-07.1, FR-07.2, FR-07.3<br>NFR-07, NFR-13 | AC-12: Registration blocked if prior FLAGGED_DEBT tenant with unpaid balance<br>Test: POST /api/tenants pre-check queries historical debts; returns 409 if flagged; settles → allow | ERD: `tenants` (status=FLAGGED_DEBT)<br>Class Diagram: `TenantService`, `TenantRepository`<br>Sequence: RegistrationCheck → cross-check → allow/block |
+| **US-12** | FR-07.1, FR-07.2, FR-07.3, FR-07.4<br>NFR-07, NFR-13 | AC-12: Registration blocked if FLAGGED_DEBT tenant with unpaid balance; settles → allow; FLAGGED_DEBT only set on move-out with insufficient deposit<br>Test: POST /api/tenants pre-check queries FLAGGED_DEBT; returns 409 if flagged with debt; settles → allow; verify FLAGGED_DEBT not set during tenancy | ERD: `tenants` (status=FLAGGED_DEBT)<br>Class Diagram: `TenantService`, `TenantRepository`<br>Sequence: RegistrationCheck → cross-check → allow/block |
 
 ---
 

@@ -1,8 +1,9 @@
 # Entity Relationship Diagram (ERD) — RenTahanan
 
 **Database:** `rentahanan_db`  
-**Generated:** 2026-11-20  
-**Source:** Live database analysis + `server/schema/init.sql`
+**Generated:** 2026-11-21  
+**Source:** Live database analysis + `server/schema/init.sql`  
+**Updated:** Added `room_status` enum + `rooms.status` column, `bed_status.UNAVAILABLE` per requirements clarification
 
 ---
 
@@ -10,7 +11,7 @@
 
 ```mermaid
 erDiagram
-    USERS ||--o{ TENANTS : "user_id (1:1 optional)"
+    USERS ||--o| TENANTS : "user_id (1:1 optional)"
     USERS ||--o{ CONTRACTS : "created_by_user_id (N:1)"
     USERS ||--o{ PAYMENTS : "logged_by_user_id (N:1)"
 
@@ -39,6 +40,7 @@ erDiagram
         room_type type
         integer capacity
         integer floor_level
+        room_status status
         timestamp created_at
         timestamp updated_at
     }
@@ -113,8 +115,8 @@ erDiagram
 | Table | Rows (est.) | Purpose |
 |-------|-------------|---------|
 | `users` | ~3 | Authentication & roles |
-| `rooms` | ~10-50 | Physical room definitions |
-| `beds` | ~50-200 | Individual bedspaces |
+| `rooms` | ~10-50 | Physical room definitions (with status for maintenance) |
+| `beds` | ~50-200 | Individual bedspaces (with UNAVAILABLE status) |
 | `tenants` | ~50-200 | Resident profiles |
 | `contracts` | ~50-200 | Lease agreements |
 | `billing_statements` | ~600-2400/yr | Monthly rent bills |
@@ -163,7 +165,8 @@ erDiagram
 |------|--------|---------|
 | `user_role` | `OWNER`, `CARETAKER`, `TENANT` | `users.role` |
 | `room_type` | `SINGLE`, `DOUBLE`, `QUAD` | `rooms.type` |
-| `bed_status` | `VACANT`, `OCCUPIED`, `OVERDUE` | `beds.status` |
+| `room_status` | `ACTIVE`, `UNDER_MAINTENANCE`, `DECOMMISSIONED` | `rooms.status` |
+| `bed_status` | `VACANT`, `OCCUPIED`, `OVERDUE`, `UNAVAILABLE` | `beds.status` |
 | `tenant_status` | `ACTIVE`, `MOVED_OUT`, `FLAGGED_DEBT` | `tenants.status` |
 | `contract_status` | `ACTIVE`, `COMPLETED`, `TERMINATED` | `contracts.status` |
 | `billing_status` | `UNPAID`, `PAID`, `OVERDUE` | `billing_statements.status` |
@@ -228,6 +231,8 @@ $$ language 'plpgsql';
 4. **No partial payments** — API validates `amount_paid == amount_due` (exact full payment only)
 5. **Cascade cleanup** — Room delete → Beds deleted; Contract delete → Billings deleted
 6. **Audit trail** — `created_by_user_id`, `logged_by_user_id`, `updated_at` triggers
+7. **Room lifecycle** — `rooms.status` (`ACTIVE`/`UNDER_MAINTENANCE`/`DECOMMISSIONED`) per FR-06.6
+8. **Bed lifecycle** — `beds.status` includes `UNAVAILABLE` for maintenance per FR-06.7
 
 ---
 
@@ -250,6 +255,7 @@ entity ROOMS {
   * type : room_type
   * capacity : integer
   * floor_level : integer
+  * status : room_status
 }
 
 entity BEDS {
@@ -323,7 +329,7 @@ CONTRACTS ||--o{ PAYMENTS
 ## Verification Checklist
 
 - [x] All 7 tables exist with correct columns
-- [x] All 6 ENUMs defined and used
+- [x] All 7 ENUMs defined and used (`user_role`, `room_type`, `room_status`, `bed_status`, `tenant_status`, `contract_status`, `billing_status`)
 - [x] All 10 FKs with correct delete rules
 - [x] 7 triggers for `updated_at` auto-update
 - [x] 15 indexes (PK, UK, custom)
