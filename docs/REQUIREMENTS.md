@@ -340,6 +340,25 @@ BACKLOG → TO DO → IN PROGRESS → REVIEW/TESTING → DONE
 
 ---
 
+## 14. Requirements Traceability Matrix (RTM)
+
+| US | Requirement (FR/NFR) | AC / Test | Relevant Diagrams |
+|----|---------------------|-----------|-------------------|
+| **US-01** | FR-01.1, FR-01.2, FR-01.3<br>NFR-01, NFR-02, NFR-04 | AC-01: Dashboard shows all rooms with color-coded badges (Green/Blue/Red)<br>Test: Render 50 rooms / 100 beds < 500ms; color-blind safe palette verified | ERD: `rooms`, `beds` tables<br>Class Diagram: `Room`, `Bed` entities<br>Sequence: Dashboard load → GET /api/rooms |
+| **US-02** | FR-01.4, FR-01.5, FR-01.6, FR-01.7<br>NFR-09, NFR-10 | AC-02: Assign tenant to vacant bed → status=OCCUPIED, contract linked<br>Test: Concurrent assignment blocked by FOR UPDATE lock; double-booking prevented | ERD: `tenants`, `contracts`, `beds`<br>Class Diagram: `Tenant`, `Contract`, `Bed`<br>Sequence: POST /api/tenants → POST /api/contracts → bed lock |
+| **US-03** | FR-01.8<br>NFR-01, NFR-06 | AC-03: Tenant portal shows room#, check-in date, rate, deposit history<br>Test: JWT TENANT role access; read-only; no edit permissions | ERD: `tenants`, `contracts`<br>Class Diagram: `Tenant`, `Contract`<br>Wireframe: TenantPortalProfile |
+| **US-04** | FR-02.1, FR-02.2, FR-02.3, FR-02.4<br>NFR-04, NFR-11 | AC-04: Monthly statements generated at fixed rate with bundled utilities<br>Test: All active contracts get billing_statement; no submeter math; cascade delete on contract | ERD: `billing_statements`, `contracts`<br>Class Diagram: `BillingStatement`, `Contract`<br>Sequence: POST /api/billing → generate for all active |
+| **US-05** | FR-02.5<br>NFR-01, NFR-06 | AC-05: Tenant invoice shows base rent + bundled utilities = total due<br>Test: GET /api/billing/tenant/:id returns itemized breakdown; no appliance surcharges | ERD: `billing_statements`<br>Class Diagram: `BillingStatement`<br>Wireframe: TenantInvoiceView |
+| **US-06** | FR-03.1, FR-03.2, FR-03.3, FR-03.4, FR-03.5<br>NFR-03, NFR-05, NFR-07, NFR-13 | AC-06: Caretaker logs cash payment with OR# → balance updated, OR unique<br>Test: Exact amount required (400 if due=400); duplicate OR# rejected 409; walk-in (null billing_id) allowed | ERD: `payments`, `billing_statements`<br>Class Diagram: `Payment`, `BillingStatement`<br>Sequence: POST /api/payments → verify OR → update status |
+| **US-07** | FR-04.1, FR-04.2, FR-04.3, FR-04.4, FR-04.5<br>NFR-04, NFR-13 | AC-07: Overdue flagged when due_date passed; warning count++; eviction_eligible_date set<br>Test: POST /api/billing/check-overdue increments count weekly; bed status=OVERDUE; dashboard shows all | ERD: `billing_statements`, `beds`<br>Class Diagram: `BillingStatement.markOverdue()`<br>Sequence: Weekly cron → check-overdue → update beds |
+| **US-08** | FR-03.6, FR-03.7<br>NFR-01, NFR-03, NFR-13 | AC-08: Digital receipt generated with OR#, amount, balance, tenant signature<br>Test: Signature/acknowledgement required before finalize; PDF downloadable; OR# on receipt | ERD: `payments` (signature field)<br>Class Diagram: `Payment`<br>Wireframe: DigitalReceiptGenerator, SignatureCapture |
+| **US-09** | FR-05.1, FR-05.2, FR-05.3, FR-05.4, FR-05.5<br>NFR-09, NFR-11, NFR-13 | AC-09: Move-out cross-checks unpaid balances; deducts from deposit; pay-before-leave enforced<br>Test: DELETE /api/contracts/:id fails 400 if UNPAID/OVERDUE billings exist; deposit calc correct; status=MOVED_OUT or FLAGGED_DEBT | ERD: `contracts`, `billing_statements`, `tenants`<br>Class Diagram: `ContractService.checkPayBeforeLeave()`<br>Sequence: MoveOutClearanceFlow → validate → update status |
+| **US-10** | FR-06.1, FR-06.2, FR-06.4, FR-06.5<br>NFR-06, NFR-08 | AC-10: Caretaker sees only cash/OR entry; Owner sees full ledger config<br>Test: JWT role middleware; 403 for CARETAKER on owner routes; 403 for TENANT on all write | ERD: `users` (role)<br>Class Diagram: `AuthService`, middleware/auth<br>Sequence: All routes → auth(['ROLE']) |
+| **US-11** | FR-03.7 (signature capture)<br>NFR-01, NFR-03, NFR-13 | AC-11: Tenant digital signature/acknowledgement required before finalizing payment entry<br>Test: POST /api/payments fails 400 without signature field; mobile touch-friendly | ERD: `payments` (signature field)<br>Class Diagram: `Payment`<br>Wireframe: SignatureCapture |
+| **US-12** | FR-07.1, FR-07.2, FR-07.3<br>NFR-07, NFR-13 | AC-12: Registration blocked if prior FLAGGED_DEBT tenant with unpaid balance<br>Test: POST /api/tenants pre-check queries historical debts; returns 409 if flagged; settles → allow | ERD: `tenants` (status=FLAGGED_DEBT)<br>Class Diagram: `TenantService`, `TenantRepository`<br>Sequence: RegistrationCheck → cross-check → allow/block |
+
+---
+
 ## 15. Next Steps (Proposed)
 
 1. **Sprint 2**: US-03, US-05, US-09, US-11 (Tenant portal, itemized statement view, move-out UX, signature capture)
