@@ -17,7 +17,7 @@ Migrations: `server/migrations/` (to be created for production changes)
 | `bed_status` | `VACANT`, `OCCUPIED`, `OVERDUE` | Bedspace availability |
 | `tenant_status` | `ACTIVE`, `MOVED_OUT`, `FLAGGED_DEBT` | Tenant lifecycle |
 | `contract_status` | `ACTIVE`, `COMPLETED`, `TERMINATED` | Lease lifecycle |
-| `billing_status` | `UNPAID`, `PARTIALLY_PAID`, `PAID`, `OVERDUE` | Payment status |
+| `billing_status` | `UNPAID`, `PAID`, `OVERDUE` | Payment status |
 
 ## Tables
 
@@ -156,7 +156,9 @@ Monthly rent charges.
 | `billing_date` | DATE | NOT NULL, DEFAULT CURRENT_DATE | Statement date |
 | `due_date` | DATE | NOT NULL | Payment due date |
 | `amount_due` | NUMERIC(10,2) | NOT NULL, CHECK ≥ 0 | Amount owed |
-| `status` | billing_status | NOT NULL, DEFAULT 'UNPAID' | UNPAID/PARTIALLY_PAID/PAID/OVERDUE |
+| `status` | billing_status | NOT NULL, DEFAULT 'UNPAID' | UNPAID/PAID/OVERDUE |
+| `overdue_warning_count` | INT | NOT NULL, DEFAULT 0 | Progressive warning count (weekly) |
+| `eviction_eligible_date` | DATE | NULLABLE | Date tenant becomes eligible for eviction (due_date + 3 months) |
 | `created_at` | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP | Creation time |
 | `updated_at` | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP | Last update (trigger) |
 
@@ -196,8 +198,10 @@ Cash collections with Official Receipt.
 
 **Business Rules**:
 - OR number unique (DB + API enforced)
-- No partial payments: `amount_paid >= amount_due` → billing = 'PAID'
+- No partial payments: `amount_paid == amount_due` (exact full payment required) → billing = 'PAID'
 - Walk-in payments allowed (`billing_statement_id` nullable)
+- Overdue detection: weekly check sets status = 'OVERDUE', increments `overdue_warning_count`, sets `eviction_eligible_date = due_date + INTERVAL '3 months'`
+- Pay-before-leave: tenant cannot terminate contract if any billing is 'UNPAID' or 'OVERDUE'
 
 ---
 

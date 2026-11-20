@@ -1,6 +1,6 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "model": "freellmapi/auto",
+  "model": "freellmapi/gemini-flash-lite",
   "default_agent": "build",
   "permissions": [
     {
@@ -26,13 +26,14 @@
   ],
   "skills": [
     ".opencode/skills",
-    "~/.config/opencode/skills"
+    "~/.config/opencode/skills",
+    "~/.agents/skills"
   ],
   "agents": {
     "build": {
       "description": "Lead orchestrator — requirements, coordination, delegation, integration, verification",
       "mode": "primary",
-      "model": "freellmapi/gemini-3.8-flash",
+      "model": "freellmapi/gemini-flash-lite",
       "permissions": [
         {
           "action": "shell",

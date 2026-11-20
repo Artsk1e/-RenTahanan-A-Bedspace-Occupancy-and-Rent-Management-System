@@ -29,7 +29,7 @@ CREATE TYPE room_type AS ENUM ('SINGLE', 'DOUBLE', 'QUAD');
 CREATE TYPE bed_status AS ENUM ('VACANT', 'OCCUPIED', 'OVERDUE');
 CREATE TYPE tenant_status AS ENUM ('ACTIVE', 'MOVED_OUT', 'FLAGGED_DEBT');
 CREATE TYPE contract_status AS ENUM ('ACTIVE', 'COMPLETED', 'TERMINATED');
-CREATE TYPE billing_status AS ENUM ('UNPAID', 'PARTIALLY_PAID', 'PAID', 'OVERDUE');
+CREATE TYPE billing_status AS ENUM ('UNPAID', 'PAID', 'OVERDUE');
 
 -- ========================================================
 -- 2. USERS TABLE (Logins for Owner, Caretaker, & Tenants)
@@ -111,6 +111,8 @@ CREATE TABLE billing_statements (
     due_date DATE NOT NULL,
     amount_due NUMERIC(10, 2) NOT NULL,
     status billing_status NOT NULL DEFAULT 'UNPAID',
+    overdue_warning_count INT NOT NULL DEFAULT 0,
+    eviction_eligible_date DATE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -147,20 +149,42 @@ VALUES
     ('owner_evelyn', 'hashed_owner_password', 'OWNER'),
     ('caretaker_mary', 'hashed_caretaker_password', 'CARETAKER');
 
--- Create Test Rooms
+-- Create Test Rooms (~50 rooms across 2 floors: 2nd and 3rd)
+-- NOTE: Room types (SINGLE/DOUBLE/QUAD) are NOT finalized per client interview.
+-- This seed uses a representative mix as placeholders.
 INSERT INTO rooms (room_number, type, capacity, floor_level)
 VALUES
-    ('101', 'SINGLE', 1, 1),
-    ('102', 'DOUBLE', 2, 1),
-    ('103', 'QUAD', 4, 1);
+    -- Floor 2 (25 rooms): 10 SINGLE, 10 DOUBLE, 5 QUAD
+    ('201', 'SINGLE', 1, 2), ('202', 'SINGLE', 1, 2), ('203', 'SINGLE', 1, 2), ('204', 'SINGLE', 1, 2), ('205', 'SINGLE', 1, 2),
+    ('206', 'SINGLE', 1, 2), ('207', 'SINGLE', 1, 2), ('208', 'SINGLE', 1, 2), ('209', 'SINGLE', 1, 2), ('210', 'SINGLE', 1, 2),
+    ('211', 'DOUBLE', 2, 2), ('212', 'DOUBLE', 2, 2), ('213', 'DOUBLE', 2, 2), ('214', 'DOUBLE', 2, 2), ('215', 'DOUBLE', 2, 2),
+    ('216', 'DOUBLE', 2, 2), ('217', 'DOUBLE', 2, 2), ('218', 'DOUBLE', 2, 2), ('219', 'DOUBLE', 2, 2), ('220', 'DOUBLE', 2, 2),
+    ('221', 'QUAD', 4, 2), ('222', 'QUAD', 4, 2), ('223', 'QUAD', 4, 2), ('224', 'QUAD', 4, 2), ('225', 'QUAD', 4, 2),
+    -- Floor 3 (25 rooms): 10 SINGLE, 10 DOUBLE, 5 QUAD
+    ('301', 'SINGLE', 1, 3), ('302', 'SINGLE', 1, 3), ('303', 'SINGLE', 1, 3), ('304', 'SINGLE', 1, 3), ('305', 'SINGLE', 1, 3),
+    ('306', 'SINGLE', 1, 3), ('307', 'SINGLE', 1, 3), ('308', 'SINGLE', 1, 3), ('309', 'SINGLE', 1, 3), ('310', 'SINGLE', 1, 3),
+    ('311', 'DOUBLE', 2, 3), ('312', 'DOUBLE', 2, 3), ('313', 'DOUBLE', 2, 3), ('314', 'DOUBLE', 2, 3), ('315', 'DOUBLE', 2, 3),
+    ('316', 'DOUBLE', 2, 3), ('317', 'DOUBLE', 2, 3), ('318', 'DOUBLE', 2, 3), ('319', 'DOUBLE', 2, 3), ('320', 'DOUBLE', 2, 3),
+    ('321', 'QUAD', 4, 3), ('322', 'QUAD', 4, 3), ('323', 'QUAD', 4, 3), ('324', 'QUAD', 4, 3), ('325', 'QUAD', 4, 3);
 
--- Create Test Beds for Room 101, 102, 103
-INSERT INTO beds (room_id, bed_code, status)
-VALUES
-    (1, 'R101-A', 'VACANT'),
-    (2, 'R102-A', 'VACANT'),
-    (2, 'R102-B', 'VACANT'),
-    (3, 'R103-A', 'VACANT'),
-    (3, 'R103-B', 'VACANT'),
-    (3, 'R103-C', 'VACANT'),
-    (3, 'R103-D', 'VACANT');
+-- Create Test Beds for all rooms
+-- Uses DO blocks to generate beds per room type automatically
+DO $$
+DECLARE
+    r RECORD;
+    i INT;
+BEGIN
+    FOR r IN SELECT room_id, room_number, type FROM rooms ORDER BY room_id LOOP
+        IF r.type = 'SINGLE' THEN
+            INSERT INTO beds (room_id, bed_code, status) VALUES (r.room_id, 'R' || r.room_number || '-A', 'VACANT');
+        ELSIF r.type = 'DOUBLE' THEN
+            FOR i IN 1..2 LOOP
+                INSERT INTO beds (room_id, bed_code, status) VALUES (r.room_id, 'R' || r.room_number || '-' || CHR(64+i), 'VACANT');
+            END LOOP;
+        ELSIF r.type = 'QUAD' THEN
+            FOR i IN 1..4 LOOP
+                INSERT INTO beds (room_id, bed_code, status) VALUES (r.room_id, 'R' || r.room_number || '-' || CHR(64+i), 'VACANT');
+            END LOOP;
+        END IF;
+    END LOOP;
+END $$;
