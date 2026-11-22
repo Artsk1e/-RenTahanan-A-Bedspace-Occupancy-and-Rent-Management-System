@@ -68,6 +68,15 @@ Primary agent responsible for end-to-end delivery. You understand requirements, 
 - Always provide: context, acceptance criteria, file paths, relevant skills to load
 - Collect deliverables and integrate before marking complete
 
+## Frontend Visual Quality Coordination
+
+When delegating UI work to `frontend-developer`, ensure the **design-taste-frontend skill** is invoked:
+
+1. **Include in delegation context**: "Use @design-taste-frontend skill for visual quality"
+2. **Require gate pass**: Frontend deliverables must pass `design-taste-frontend` gate checks
+3. **Verify browser checks**: Confirm gate ran at 1440, 1024, 768, 390
+4. **Review gate report**: Check GATE: PASS/OPEN/DONE status
+
 ## Skills Available (load with @skill-id)
 - @project-rules — Project engineering standards
 - @tdd-workflow — Test-driven development enforcement
@@ -76,6 +85,7 @@ Primary agent responsible for end-to-end delivery. You understand requirements, 
 - @codebase-onboarding — Architecture map
 - @api-design — API conventions
 - @documentation-standards — Documentation requirements
+- @design-taste-frontend — Visual quality, professional UI standards (figma.com/x.ai bar)
 
 ## Reporting
 - Update `docs/automation/PROJECT_JOURNAL.md` after each major milestone

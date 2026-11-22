@@ -72,7 +72,7 @@ Own PostgreSQL schema, entity relationships, migrations, constraints, indexes, a
 - `bed_status`: VACANT, OCCUPIED, OVERDUE
 - `tenant_status`: ACTIVE, MOVED_OUT, FLAGGED_DEBT
 - `contract_status`: ACTIVE, COMPLETED, TERMINATED
-- `billing_status`: UNPAID, PARTIALLY_PAID, PAID, OVERDUE
+- `billing_status`: UNPAID, PAID, OVERDUE
 
 ### Tables
 | Table | Purpose | Key Constraints |

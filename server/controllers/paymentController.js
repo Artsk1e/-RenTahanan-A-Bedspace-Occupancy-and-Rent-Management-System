@@ -43,14 +43,16 @@ exports.createPayment = async (req, res) => {
       [billing_statement_id || null, tenant_id, logged_by_user_id, amount_paid, or_number, remarks]
     );
 
-    // 3. Update billing statement status to PAID if linked and amount matches (Business rule)
+    // 3. Update billing statement status to PAID if linked and amount matches EXACTLY (Business rule: no partial payments)
     if (billing_statement_id) {
         const billing = await client.query('SELECT amount_due FROM billing_statements WHERE billing_statement_id = $1', [billing_statement_id]);
         if (billing.rows.length > 0) {
-            // Partial payments are NOT allowed (per business rules), so we mark as PAID if amount matches
-            if (parseFloat(amount_paid) >= parseFloat(billing.rows[0].amount_due)) {
-                await client.query("UPDATE billing_statements SET status = 'PAID' WHERE billing_statement_id = $1", [billing_statement_id]);
+            const amountDue = parseFloat(billing.rows[0].amount_due);
+            const amountPaid = parseFloat(amount_paid);
+            if (amountPaid !== amountDue) {
+                throw new Error(`Partial payments not allowed. Exact amount of ₱${amountDue.toFixed(2)} required. Received ₱${amountPaid.toFixed(2)}.`);
             }
+            await client.query("UPDATE billing_statements SET status = 'PAID' WHERE billing_statement_id = $1", [billing_statement_id]);
         }
     }
 

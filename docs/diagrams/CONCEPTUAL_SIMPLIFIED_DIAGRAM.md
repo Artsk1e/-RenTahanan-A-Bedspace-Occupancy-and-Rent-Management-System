@@ -123,6 +123,30 @@ classDiagram
         +validateExactPayment(amountDue: Decimal): boolean
     }
 
+    class ActivityLog {
+        -int id
+        -int userId
+        -string action
+        -string entityType
+        -int entityId
+        -json oldData
+        -json newData
+        -DateTime createdAt
+    }
+
+    class Notification {
+        -int id
+        -int userId
+        -string title
+        -string message
+        -string type
+        -boolean isRead
+        -string linkedEntityType
+        -int linkedEntityId
+        -DateTime createdAt
+        +markAsRead(): void
+    }
+
     %% ==================== RELATIONSHIPS ====================
     %% Authentication ↔ Domain (Composition: User owns profile)
     User "1" -- "0..1" Tenant : portal account (optional)
@@ -164,9 +188,9 @@ classDiagram
     Tenant --> BillingStatement : views
     Tenant --> Payment : views
 
-    %% Staff role derives from User.role
-    Staff --> User : delegates auth
-    Tenant --> User : delegates auth (if linked)
+    %% Association: User makes ActivityLogs and receives Notifications
+    User "1" -- "0..*" ActivityLog : generates
+    User "1" *-- "0..*" Notification : receives
 ```
 
 ---

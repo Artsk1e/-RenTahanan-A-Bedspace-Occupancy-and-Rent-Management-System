@@ -170,6 +170,31 @@ classDiagram
         +validateExactPayment(amountDue: Decimal): void
     }
 
+    %% ==================== AUDIT & NOTIFICATION ENTITIES ====================
+    class ActivityLog {
+        +int logId
+        +int? userId
+        +string action
+        +string entityType
+        +int entityId
+        +json oldValue
+        +json newValue
+        +DateTime createdAt
+    }
+
+    class Notification {
+        +int notificationId
+        +int userId
+        +string title
+        +string message
+        +string type
+        +boolean isRead
+        +string linkedEntityType
+        +int linkedEntityId
+        +DateTime createdAt
+        +markAsRead(): void
+    }
+
     %% ==================== REPOSITORIES (Data Access Layer) ====================
     class IRepository~T~ {
         <<interface>>
@@ -213,10 +238,14 @@ classDiagram
         +findByContract(contractId: int): Promise~BillingStatement[]~
     }
 
-    class PaymentRepository {
-        +findByOrNumber(orNumber: string): Promise~Payment?~
-        +findByTenant(tenantId: int): Promise~Payment[]~
-        +findByBillingStatement(billingId: int): Promise~Payment[]~
+    class ActivityLogRepository {
+        +findByUser(userId: int): Promise~ActivityLog[]~
+        +findByEntity(entityType: string, entityId: int): Promise~ActivityLog[]~
+    }
+
+    class NotificationRepository {
+        +findUnreadByUser(userId: int): Promise~Notification[]~
+        +markAsRead(id: int): Promise~void~
     }
 
     %% ==================== SERVICES (Business Logic Layer) ====================

@@ -107,15 +107,25 @@ This document describes the AI engineering team architecture for the RenTahanan 
 - Client state management (auth, forms, UI)
 - Accessibility (WCAG 2.1 AA) and responsive design
 - Forms with React Hook Form + Zod validation
+- **Visual Quality** — Apply `design-taste-frontend` skill for all UI work (see skill workflow)
 
 **Boundaries**: WRITE `client/**`, `docs/development/**`; READ backend contracts, NO backend/db changes
 
-**Skills**: `@frontend-patterns`, `@react-patterns`, `@frontend-a11y`, `@make-interfaces-feel-better`, `@api-design`, `@api-conventions`
+**Skills**: `@design-taste-frontend`, `@frontend-patterns`, `@react-patterns`, `@frontend-a11y`, `@make-interfaces-feel-better`, `@api-design`, `@api-conventions`
 
 **Mockups to Implement** (from `docs/*.png`):
 - Login, Role Selection, Owner/Caretaker/Tenant Dashboards
 - Tenant Registration, Caretaker OR Entry, Billing History, Digital Receipt
 - Bedspace Dashboard, Assign Tenant to Vacant Bed, Forgot Password
+
+**design-taste-frontend Skill Integration:**
+- **RenTahanan is "software" kind** (SaaS/management system) — per skill section 1 table
+- **Page kinds**: All pages are `software` kind (auth pages, admin panels, user portal, data entry forms)
+- **Skill Workflow**: Run gate start → deal hero → deal palette → deal CSS → deal moments → build page → run gate
+- **Browser Gates Required**: 1440, 1024, 768, 390
+- **Key Rules**: One section per screen, equal edges, hover micro-animations, real icons/photographs, hero entrance, dealt moments, no violet/lavender, real icons not drawn
+- **Skill Location**: `/home/art/.agents/skills/design-taste-frontend/`
+- **Gate Commands**: `gate.mjs --start` → `deal.mjs` → `start.mjs deal/css/brand` → `moments.mjs` → build → `gate.mjs` (must PASS)
 
 ---
 
@@ -294,6 +304,7 @@ This document describes the AI engineering team architecture for the RenTahanan 
 | `api-conventions` | `backend-developer`, `frontend-developer`, `architect` |
 | `auth-and-authorization` | `backend-developer`, `frontend-developer`, `architect`, `code-reviewer` |
 | `documentation-standards` | `documenter`, `architect`, `build` |
+| `design-taste-frontend` | `frontend-developer`, `build` (visual quality, professional UI standards) |
 
 ### ECC Global Skills (Reused)
 | Skill | Used By |

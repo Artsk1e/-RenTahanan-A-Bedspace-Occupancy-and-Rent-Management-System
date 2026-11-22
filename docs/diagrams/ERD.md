@@ -25,6 +25,9 @@ erDiagram
     CONTRACTS ||--|{ BILLING_STATEMENTS : "contract_id (1:N) CASCADE"
     BILLING_STATEMENTS ||--o{ PAYMENTS : "billing_statement_id (N:1) SET NULL"
 
+    USERS ||--o{ ACTIVITY_LOGS : "user_id (1:N) SET NULL"
+    USERS ||--o{ NOTIFICATIONS : "user_id (1:N) CASCADE"
+
     USERS {
         integer user_id PK
         varchar username UK
@@ -32,6 +35,29 @@ erDiagram
         user_role role
         timestamp created_at
         timestamp updated_at
+    }
+
+    ACTIVITY_LOGS {
+        integer log_id PK
+        integer user_id FK
+        varchar action
+        varchar entity_type
+        integer entity_id
+        jsonb old_value
+        jsonb new_value
+        timestamp created_at
+    }
+
+    NOTIFICATIONS {
+        integer notification_id PK
+        integer user_id FK
+        varchar title
+        varchar message
+        varchar type
+        boolean is_read
+        varchar linked_entity_type
+        integer linked_entity_id
+        timestamp created_at
     }
 
     ROOMS {
@@ -121,6 +147,8 @@ erDiagram
 | `contracts` | ~50-200 | Lease agreements |
 | `billing_statements` | ~600-2400/yr | Monthly rent bills |
 | `payments` | ~600-2400/yr | Cash collections + OR |
+| `activity_logs` | High volume | Audit trail of sensitive actions (Owner only) |
+| `notifications` | Medium volume | Overdue alerts & system messages |
 
 ---
 
@@ -156,6 +184,14 @@ erDiagram
 ### 7. User → Contract/Payment (N:1, SET NULL)
 - Staff who created contract / logged payment
 - User deleted → Contract/Payment preserved, link cleared
+
+### 8. User → Activity Log (1:N, SET NULL)
+- User who performed the action
+- User deleted → Log preserved with null user_id (Audit integrity)
+
+### 9. User → Notification (1:N, CASCADE)
+- Recipient of the notification
+- User deleted → Notifications deleted
 
 ---
 
@@ -311,9 +347,34 @@ entity PAYMENTS {
   * remarks : text
 }
 
+entity ACTIVITY_LOGS {
+  * log_id : integer <<PK>>
+  * user_id : integer <<FK>>
+  * action : varchar
+  * entity_type : varchar
+  * entity_id : integer
+  * old_value : jsonb
+  * new_value : jsonb
+  * created_at : timestamp
+}
+
+entity NOTIFICATIONS {
+  * notification_id : integer <<PK>>
+  * user_id : integer <<FK>>
+  * title : varchar
+  * message : varchar
+  * type : varchar
+  * is_read : boolean
+  * linked_entity_type : varchar
+  * linked_entity_id : integer
+  * created_at : timestamp
+}
+
 USERS ||--o| TENANTS
 USERS ||--o{ CONTRACTS
 USERS ||--o{ PAYMENTS
+USERS ||--o{ ACTIVITY_LOGS
+USERS ||--o{ NOTIFICATIONS
 ROOMS ||--|{ BEDS
 BEDS ||--o{ CONTRACTS
 TENANTS ||--o{ CONTRACTS

@@ -20,6 +20,11 @@ RenTahanan: A Bedspace Occupancy and Rent Management System for Evelyn Lady's Do
 - **Planner Agent (`planner`):** Manages project scope, implementation plans, and sprint milestones.
 - **Database / Backend Specialists (`database-reviewer`, `general`):** Handle PostgreSQL schema integrity and Express API routes/controllers.
 
+## Context Discipline
+- Read targeted sections (`grep`, `read` with offset/limit) instead of whole files, and never re-read a file already in context.
+- Subagent and command prompts carry a short brief plus file paths — not pasted code, full history, or large tool dumps.
+- Put reusable procedures in skills, not in AGENTS.md; keep always-loaded text minimal.
+
 ## graphify
 
 This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.

@@ -41,10 +41,9 @@ description: Rent calculations, due dates, payment records, outstanding balances
 ### Status Transitions
 | From | To | Trigger |
 |------|-----|---------|
-| `UNPAID` | `PAID` | Full payment received (`amount_paid >= amount_due`) |
+| `UNPAID` | `PAID` | Full exact payment received (`amount_paid == amount_due`) |
 | `UNPAID` | `OVERDUE` | `due_date` passed without full payment |
-| `OVERDUE` | `PAID` | Full payment received |
-| `UNPAID` | `PARTIALLY_PAID` | **NOT ALLOWED** — partial payments rejected |
+| `OVERDUE` | `PAID` | Full exact payment received |
 
 ## Payment Rules
 
@@ -59,8 +58,8 @@ description: Rent calculations, due dates, payment records, outstanding balances
 - **Sequential**: Recommended but not enforced by DB
 
 ### Payment Amount
-- **Minimum**: `amount_paid >= billing_statements.amount_due` to mark `PAID`
-- **Overpayment**: Allowed (excess recorded, no auto-refund logic)
+- **Exact amount required**: `amount_paid == billing_statements.amount_due` to mark `PAID`
+- **Overpayment**: **REJECTED** — Returns 400
 - **Partial**: **REJECTED** — Returns 400, billing remains `UNPAID`
 
 ### Walk-in Payments

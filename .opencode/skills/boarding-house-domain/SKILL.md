@@ -46,7 +46,7 @@ Monthly rent charge for an active contract.
 - **Links**: `contract_id` (FK, CASCADE), `tenant_id` (FK, CASCADE)
 - **Dates**: `billing_date` (default CURRENT_DATE), `due_date`
 - **Amount**: `amount_due` (equals contract `monthly_rate` unless adjusted)
-- **Status**: `UNPAID` | `PARTIALLY_PAID` | `PAID` | `OVERDUE`
+- **Status**: `UNPAID` | `PAID` | `OVERDUE`
 
 ### Payment
 Cash collection record with Official Receipt (OR).
@@ -86,9 +86,7 @@ ACTIVE ──(end_date reached)──→ COMPLETED
 
 ### Billing Status
 ```
-UNPAID ──(full payment)──→ PAID
-   │
-   ├─(partial payment)──→ PARTIALLY_PAID (not allowed per rules)
+UNPAID ──(full exact payment)──→ PAID
    │
    └─(due_date passed)──→ OVERDUE
 ```

@@ -101,6 +101,16 @@ exports.terminateContract = async (req, res) => {
       throw new Error('Contract is already terminated or completed');
     }
 
+    // Pay-before-leave rule: check for outstanding balances
+    const outstandingBills = await client.query(`
+      SELECT billing_statement_id, amount_due, status 
+      FROM billing_statements 
+      WHERE tenant_id = $1 AND status IN ('UNPAID', 'OVERDUE')
+    `, [contract.tenant_id]);
+    if (outstandingBills.rows.length > 0) {
+      throw new Error('Outstanding balance must be settled before move-out. Tenant has ' + outstandingBills.rows.length + ' unpaid/overdue billing statement(s).');
+    }
+
     // Update contract status
     await client.query("UPDATE contracts SET status = 'TERMINATED', updated_at = CURRENT_TIMESTAMP WHERE contract_id = $1", [id]);
 

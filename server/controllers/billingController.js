@@ -43,3 +43,62 @@ exports.createBilling = async (req, res) => {
     res.status(500).json({ error: 'Server error' });
   }
 };
+
+// Check and update overdue billing statements (run weekly per business rules)
+// Updates UNPAID bills past due_date to OVERDUE, increments warning count, sets eviction eligibility
+exports.checkOverdue = async (req, res) => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // Find all UNPAID billing statements where due_date has passed
+    const overdueBills = await client.query(`
+      SELECT billing_statement_id, due_date 
+      FROM billing_statements 
+      WHERE status = 'UNPAID' AND due_date < CURRENT_DATE
+    `);
+
+    const updated = [];
+    for (const bill of overdueBills.rows) {
+      // Increment warning count, set status to OVERDUE, set eviction eligible date (due_date + 3 months)
+      const result = await client.query(`
+        UPDATE billing_statements 
+        SET status = 'OVERDUE',
+            overdue_warning_count = overdue_warning_count + 1,
+            eviction_eligible_date = due_date + INTERVAL '3 months',
+            updated_at = CURRENT_TIMESTAMP
+        WHERE billing_statement_id = $1
+        RETURNING billing_statement_id, overdue_warning_count, eviction_eligible_date
+      `, [bill.billing_statement_id]);
+      updated.push(result.rows[0]);
+    }
+
+    // Also update bed status to OVERDUE for beds with overdue billing
+    if (updated.length > 0) {
+      const billIds = updated.map(u => u.billing_statement_id).join(',');
+      await client.query(`
+        UPDATE beds 
+        SET status = 'OVERDUE', updated_at = CURRENT_TIMESTAMP
+        WHERE bed_id IN (
+          SELECT b.bed_id 
+          FROM contracts c
+          JOIN beds b ON c.bed_id = b.bed_id
+          JOIN billing_statements bs ON bs.contract_id = c.contract_id
+          WHERE bs.billing_statement_id IN (${billIds}) AND c.status = 'ACTIVE'
+        )
+      `);
+    }
+
+    await client.query('COMMIT');
+    res.json({ 
+      message: `Overdue check complete. ${updated.length} billing statement(s) updated.`,
+      updated 
+    });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error(err.message);
+    res.status(500).json({ error: 'Server error during overdue check' });
+  } finally {
+    client.release();
+  }
+};

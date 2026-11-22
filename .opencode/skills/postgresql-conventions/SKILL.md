@@ -42,7 +42,7 @@ CREATE TYPE room_type AS ENUM ('SINGLE', 'DOUBLE', 'QUAD');
 CREATE TYPE bed_status AS ENUM ('VACANT', 'OCCUPIED', 'OVERDUE');
 CREATE TYPE tenant_status AS ENUM ('ACTIVE', 'MOVED_OUT', 'FLAGGED_DEBT');
 CREATE TYPE contract_status AS ENUM ('ACTIVE', 'COMPLETED', 'TERMINATED');
-CREATE TYPE billing_status AS ENUM ('UNPAID', 'PARTIALLY_PAID', 'PAID', 'OVERDUE');
+CREATE TYPE billing_status AS ENUM ('UNPAID', 'PAID', 'OVERDUE');
 ```
 
 ## Table Design Standards
