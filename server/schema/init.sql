@@ -3,7 +3,7 @@
 -- Client: Evelyn Lady's Dormitory
 -- Database: PostgreSQL
 -- Author: Papolonias (Backend & Database Lead)
--- Updated: 2026-11-21 - Added room_status, bed_status.UNAVAILABLE, updated_at triggers
+-- Updated: 2026-11-22 - Aligned with ERD.md (9 tables, 7 enums, 12 FKs, 12 CHECKs, 7 triggers)
 -- ========================================================
 
 -- Drop existing tables/types if re-initializing (Clean slate)
@@ -14,6 +14,8 @@ DROP TABLE IF EXISTS tenants CASCADE;
 DROP TABLE IF EXISTS beds CASCADE;
 DROP TABLE IF EXISTS rooms CASCADE;
 DROP TABLE IF EXISTS users CASCADE;
+DROP TABLE IF EXISTS activity_logs CASCADE;
+DROP TABLE IF EXISTS notifications CASCADE;
 
 DROP TYPE IF EXISTS user_role CASCADE;
 DROP TYPE IF EXISTS room_type CASCADE;
@@ -43,7 +45,8 @@ CREATE TABLE users (
     password_hash VARCHAR(255) NOT NULL,
     role user_role NOT NULL DEFAULT 'TENANT',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT users_username_not_empty CHECK (length(username) > 0)
 );
 
 -- ========================================================
@@ -57,7 +60,9 @@ CREATE TABLE rooms (
     floor_level INT NOT NULL,
     status room_status NOT NULL DEFAULT 'ACTIVE',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT rooms_capacity_positive CHECK (capacity > 0),
+    CONSTRAINT rooms_floor_positive CHECK (floor_level > 0)
 );
 
 -- ========================================================
@@ -70,7 +75,8 @@ CREATE TABLE beds (
     -- e.g., 'R101-A', 'R101-B'
     status bed_status NOT NULL DEFAULT 'VACANT',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT beds_bed_code_format CHECK (bed_code ~ '^R[0-9]{3}-[A-Z]$')
 );
 
 -- ========================================================
@@ -86,7 +92,9 @@ CREATE TABLE tenants (
     emergency_contact VARCHAR(15) NOT NULL,
     status tenant_status NOT NULL DEFAULT 'ACTIVE',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT tenants_contact_format CHECK (contact_number ~ '^\+?[0-9]{10,15}$'),
+    CONSTRAINT tenants_emergency_format CHECK (emergency_contact ~ '^\+?[0-9]{10,15}$')
 );
 
 -- ========================================================
@@ -106,7 +114,10 @@ CREATE TABLE contracts (
     deposit_paid NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
     status contract_status NOT NULL DEFAULT 'ACTIVE',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT contracts_monthly_rate_positive CHECK (monthly_rate > 0),
+    CONSTRAINT contracts_advance_rent_paid_nonneg CHECK (advance_rent_paid >= 0),
+    CONSTRAINT contracts_deposit_paid_nonneg CHECK (deposit_paid >= 0)
 );
 
 -- ========================================================
@@ -123,7 +134,9 @@ CREATE TABLE billing_statements (
     overdue_warning_count INT NOT NULL DEFAULT 0,
     eviction_eligible_date DATE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT billing_amount_due_positive CHECK (amount_due > 0),
+    CONSTRAINT billing_warning_count_nonneg CHECK (overdue_warning_count >= 0)
 );
 
 -- ========================================================
@@ -140,8 +153,8 @@ CREATE TABLE payments (
     -- Mandatory Official Receipt Number
     payment_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     remarks TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT payments_amount_paid_positive CHECK (amount_paid > 0)
 );
 
 -- ========================================================
@@ -156,6 +169,7 @@ CREATE TABLE activity_logs (
     old_value JSONB,
     new_value JSONB,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    -- NO updated_at per ERD.md
 );
 
 -- ========================================================
@@ -171,10 +185,12 @@ CREATE TABLE notifications (
     linked_entity_type VARCHAR(50),
     linked_entity_id INT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    -- NO updated_at per ERD.md
 );
 
 -- ========================================================
--- 11. AUDIT TRIGGERS (updated_at auto-update on all tables)
+-- 11. AUDIT TRIGGERS (updated_at auto-update on 7 core tables)
+--     activity_logs and notifications do NOT have updated_at
 -- ========================================================
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
@@ -205,27 +221,23 @@ CREATE TRIGGER update_billing_statements_updated_at BEFORE UPDATE ON billing_sta
 CREATE TRIGGER update_payments_updated_at BEFORE UPDATE ON payments
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER update_activity_logs_updated_at BEFORE UPDATE ON activity_logs
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
-CREATE TRIGGER update_notifications_updated_at BEFORE UPDATE ON notifications
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+-- NO triggers for activity_logs and notifications (no updated_at column)
 
 -- ========================================================
 -- 12. PERFORMANCE INDEXES
 -- ========================================================
-CREATE INDEX idx_beds_status ON beds(status);
+-- FK indexes (for JOIN performance)
 CREATE INDEX idx_beds_room_id ON beds(room_id);
+CREATE INDEX idx_contracts_tenant ON contracts(tenant_id);
+CREATE INDEX idx_contracts_bed ON contracts(bed_id);
+CREATE INDEX idx_contracts_status ON contracts(status);
 CREATE INDEX idx_billing_status ON billing_statements(status);
 CREATE INDEX idx_billing_tenant_id ON billing_statements(tenant_id);
 CREATE INDEX idx_billing_contract_id ON billing_statements(contract_id);
 CREATE INDEX idx_billing_due_date ON billing_statements(due_date);
-CREATE INDEX idx_payments_or ON payments(or_number);
 CREATE INDEX idx_payments_tenant_id ON payments(tenant_id);
 CREATE INDEX idx_payments_billing_statement_id ON payments(billing_statement_id);
-CREATE INDEX idx_contracts_tenant ON contracts(tenant_id);
-CREATE INDEX idx_contracts_bed ON contracts(bed_id);
-CREATE INDEX idx_contracts_status ON contracts(status);
+CREATE INDEX idx_payments_or ON payments(or_number);
 CREATE INDEX idx_rooms_status ON rooms(status);
 CREATE INDEX idx_tenants_status ON tenants(status);
 CREATE INDEX idx_activity_logs_user_id ON activity_logs(user_id);
@@ -234,7 +246,7 @@ CREATE INDEX idx_notifications_user_id ON notifications(user_id);
 CREATE INDEX idx_notifications_is_read ON notifications(is_read);
 
 -- ========================================================
--- 11. INITIAL TEST SEED DATA (For Local Testing)
+-- 13. INITIAL TEST SEED DATA (For Local Testing)
 -- ========================================================
 -- Create Default Staff Users
 INSERT INTO users (username, password_hash, role)
