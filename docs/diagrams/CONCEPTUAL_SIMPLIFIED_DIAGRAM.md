@@ -92,6 +92,7 @@ classDiagram
         -Decimal monthlyRate
         -Decimal advanceRentPaid
         -Decimal depositPaid
+        -string signatureBase64
         -ContractStatus status
         +isActive(): boolean
         +terminate(): void
@@ -118,6 +119,7 @@ classDiagram
         -string orNumber
         -Decimal amountPaid
         -DateTime paymentDate
+        -boolean signatureVerified
         -string remarks
         +generateReceipt(): string
         +validateExactPayment(amountDue: Decimal): boolean

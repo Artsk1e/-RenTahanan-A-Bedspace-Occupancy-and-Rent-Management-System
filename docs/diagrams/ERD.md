@@ -102,6 +102,7 @@ erDiagram
         numeric monthly_rate
         numeric advance_rent_paid
         numeric deposit_paid
+        text signature_base64
         contract_status status
         timestamp created_at
         timestamp updated_at
@@ -129,6 +130,7 @@ erDiagram
         numeric amount_paid
         varchar or_number UK
         timestamp payment_date
+        boolean signature_verified
         text remarks
         timestamp updated_at
     }
@@ -321,6 +323,7 @@ entity CONTRACTS {
   * monthly_rate : numeric
   * advance_rent_paid : numeric
   * deposit_paid : numeric
+  * signature_base64 : text
   * status : contract_status
 }
 
@@ -344,6 +347,7 @@ entity PAYMENTS {
   * amount_paid : numeric
   * or_number : varchar <<UK>>
   * payment_date : timestamp
+  * signature_verified : boolean
   * remarks : text
 }
 

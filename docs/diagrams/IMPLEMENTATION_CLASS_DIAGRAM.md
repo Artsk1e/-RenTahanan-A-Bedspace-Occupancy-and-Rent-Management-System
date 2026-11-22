@@ -122,6 +122,7 @@ classDiagram
         +Decimal monthlyRate
         +Decimal advanceRentPaid
         +Decimal depositPaid
+        +string? signatureBase64
         +ContractStatus status
         +DateTime createdAt
         +DateTime updatedAt
@@ -162,6 +163,7 @@ classDiagram
         +Decimal amountPaid
         +string orNumber
         +DateTime paymentDate
+        +boolean signatureVerified
         +string? remarks
         +DateTime updatedAt
         +billingStatement: BillingStatement?

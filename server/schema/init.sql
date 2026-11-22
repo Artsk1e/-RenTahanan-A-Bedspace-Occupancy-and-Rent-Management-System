@@ -112,6 +112,8 @@ CREATE TABLE contracts (
     -- Flat-rate rent with bundled utilities
     advance_rent_paid NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
     deposit_paid NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
+    signature_base64 TEXT,
+    -- Tenant digital signature on lease contract (US-02, move-in signing)
     status contract_status NOT NULL DEFAULT 'ACTIVE',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -152,6 +154,8 @@ CREATE TABLE payments (
     or_number VARCHAR(50) UNIQUE NOT NULL,
     -- Mandatory Official Receipt Number
     payment_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    signature_verified BOOLEAN NOT NULL DEFAULT FALSE,
+    -- Tenant acknowledgement checkbox on payment (US-11, FR-03.7)
     remarks TEXT,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT payments_amount_paid_positive CHECK (amount_paid > 0)
