@@ -1,0 +1,114 @@
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryTextColor': '#000000', 'secondaryTextColor': '#000000', 'tertiaryTextColor': '#000000', 'lineColor': '#000000', 'textColor': '#000000', 'actorTextColor': '#000000', 'signalTextColor': '#000000', 'labelTextColor': '#000000', 'loopTextColor': '#000000', 'noteTextColor': '#000000', 'activationBorderColor': '#000000' }}}%%
+sequenceDiagram
+    actor Tenant as Tenant
+    actor Caretaker as Caretaker
+    actor Owner as Owner
+    participant UI as React Frontend
+    participant API as Express / Node.js API
+    participant DB as PostgreSQL (rentahanan_db)
+
+    Note over Caretaker,DB: Flow 1: Bedspace Lookup, Evasion Check & Contract Registration
+
+    Caretaker->>UI: 1.1: Request active rooms with VACANT beds
+    UI->>API: 1.2: GET /api/rooms/available
+    API->>DB: 1.3: SELECT rooms (status='ACTIVE') JOIN beds (status='VACANT')
+    DB-->>API: 1.4: Return available rooms & bed_codes
+    API-->>UI: 1.5: Return available room/bed payload
+    UI-->>Caretaker: 1.6: Display color-coded Room/Bed occupancy cards
+
+    Caretaker->>UI: 1.7: Submit tenant info, bed_id, dates, monthly_rate, advance_rent_paid & deposit_paid
+    UI->>API: 1.8: POST /api/contracts (payload + JWT role)
+    API->>DB: 1.9: BEGIN TRANSACTION; SELECT * FROM beds WHERE bed_id = :bed_id FOR UPDATE
+    API->>DB: 1.10: SELECT * FROM tenants WHERE status = 'FLAGGED_DEBT' (pre-check)
+    DB-->>API: 1.11: Return bed lock & FLAGGED_DEBT check result
+
+    alt FLAGGED_DEBT Found
+        alt Tenant Settles Prior Debt Now
+            Caretaker->>UI: 1.12a: Submit prior debt settlement (exact amount, OR#, signature)
+            UI->>API: 1.13a: POST /api/payments (debt settlement payload)
+            API->>DB: 1.14a: Record payment, set tenant ACTIVE, insert contract & billing, set bed OCCUPIED & COMMIT
+            DB-->>API: 1.15a: Return committed transaction
+            API-->>UI: 1.16a: 201 Created (Debt settled & Contract active)
+            UI-->>Caretaker: 1.17a: Confirm debt settled & bed OCCUPIED
+        else Unsettled Debt Remains
+            API-->>UI: 1.12b: 409 Conflict (FLAGGED_DEBT block)
+            UI-->>Caretaker: 1.13b: Display unsettled debt registration block
+        end
+    else Bed Unavailable / Already Locked
+        API-->>UI: 1.12c: 409 Conflict (Double-booking prevented)
+        UI-->>Caretaker: 1.13c: Show bed unavailable error
+    else Valid Assignment
+        API->>DB: 1.12d: INSERT tenant (ACTIVE), contract (ACTIVE), initial UNPAID billing_statement, UPDATE bed OCCUPIED & COMMIT
+        DB-->>API: 1.13d: Return committed transaction
+        API-->>UI: 1.14d: 201 Created (Contract & Billing initialized)
+        UI-->>Caretaker: 1.15d: Confirm contract created & bed OCCUPIED
+    end
+
+    Note over Tenant,DB: Flow 2: Tenant Portal, Cash Payment & Weekly Overdue Check
+
+    opt Tenant Views Portal (Read-Only, JWT TENANT)
+        Tenant->>UI: 2.1: Open profile, contract, itemized bill & payment history
+        UI->>API: 2.2: GET /api/portal/my-ledger
+        API->>DB: 2.3: SELECT contracts, billing_statements, payments WHERE tenant_id = :tenant_id
+        DB-->>API: 2.4: Return read-only tenant records
+        API-->>UI: 2.5: Return ledger & itemized bill JSON
+        UI-->>Tenant: 2.6: Display itemized statement & payment history
+    end
+
+    loop Monthly Cash Collection Cycle
+        Tenant->>Caretaker: 2.7: Hand over exact cash & provide digital signature/acknowledgement
+        Caretaker->>UI: 2.8: Enter amount_paid, payment_date, or_number, remarks & capture tenant signature
+        UI->>API: 2.9: POST /api/payments (billing_statement_id, amount_paid, or_number, signature, logged_by_user_id)
+        API->>DB: 2.10: BEGIN TRANSACTION; validate signature, amount_paid == amount_due & unique or_number
+        alt Validation Failed (Missing Signature, Inexact Amount, or Duplicate OR#)
+            DB-->>API: 2.11a: Return validation/constraint error
+            API-->>UI: 2.12a: 400/409 Validation Error
+            UI-->>Caretaker: 2.13a: Prompt correction (exact amount, unique OR# & signature)
+        else Exact Payment & OR Valid
+            API->>DB: 2.11b: INSERT payment, UPDATE billing_statement PAID, UPDATE bed OCCUPIED (if OVERDUE) & COMMIT
+            DB-->>API: 2.12b: Return committed payment
+            API-->>UI: 2.13b: 201 Created + Digital Receipt
+            UI-->>Caretaker: 2.14b: Display PAID status & digital receipt confirmation
+        end
+    end
+
+    API->>DB: 2.15: Weekly Overdue Check: SELECT UNPAID bills past due_date -> UPDATE status='OVERDUE', warning_count+1, eviction_eligible_date=+3 mos & beds='OVERDUE' (tenant stays ACTIVE)
+    DB-->>API: 2.16: Return updated overdue records
+
+    Note over Caretaker,DB: Flow 3: Move-Out Clearance, Deposit Reconciliation & Owner Reports
+
+    Caretaker->>UI: 3.1: Open Move-Out Clearance review
+    UI->>API: 3.2: GET /api/contracts/:id/clearance (Read-Only Preview)
+    API->>DB: 3.3: SELECT contract deposit_paid & SUM(UNPAID/OVERDUE billing_statements)
+    DB-->>API: 3.4: Return deposit vs. unpaid balance
+    API-->>UI: 3.5: Return reconciliation preview (no DB mutation)
+    UI-->>Caretaker: 3.6: Display refund vs. shortfall preview
+
+    alt Normal Move-Out with Unpaid/Overdue Balance
+        Caretaker->>UI: 3.7a: Submit normal move-out confirmation
+        UI->>API: 3.8a: POST /api/contracts/:id/moveout-clearance (type='NORMAL')
+        API-->>UI: 3.9a: 400 Bad Request (Pay-before-leave rule enforced)
+        UI-->>Caretaker: 3.10a: Block normal move-out until balance paid
+    else Normal Move-Out (Zero Balance) OR Forced Move-Out (Owner Only)
+        Owner->>UI: 3.7b: Confirm move-out / authorize forced eviction override (if forced)
+        UI->>API: 3.8b: POST /api/contracts/:id/moveout-clearance (type, deposit_applied)
+        API->>DB: 3.9b: BEGIN TRANSACTION; verify req.user.role == 'OWNER' (if forced) & reconcile deposit
+        alt Deposit >= Outstanding Balance
+            API->>DB: 3.10b: Refund excess if any, set tenant MOVED_OUT, contract COMPLETED/TERMINATED, bed VACANT/UNAVAILABLE & COMMIT
+            DB-->>API: 3.11b: Return committed clearance
+            API-->>UI: 3.12b: 200 OK (Move-out cleared)
+            UI-->>Owner: 3.13b: Display cleared move-out & refund summary
+        else Deposit < Outstanding Balance (Shortfall)
+            API->>DB: 3.10c: Set tenant FLAGGED_DEBT, record remaining debt, set contract TERMINATED, bed VACANT/UNAVAILABLE & COMMIT
+            DB-->>API: 3.11c: Return committed debt-flagged move-out
+            API-->>UI: 3.12c: 200 OK (Tenant flagged for debt)
+            UI-->>Owner: 3.13c: Display FLAGGED_DEBT & remaining debt summary
+        end
+    end
+
+    Owner->>UI: 3.14: Request Occupancy & Financial Audit Reports
+    UI->>API: 3.15: GET /api/reports/occupancy & GET /api/reports/financial
+    API->>DB: 3.16: Verify req.user.role == 'OWNER' (403 if not) & query aggregated occupancy/payment data
+    DB-->>API: 3.17: Return consolidated report datasets
+    API-->>UI: 3.18: 200 OK (Report payload)
+    UI-->>Owner: 3.19: Render occupancy & financial audit reports
