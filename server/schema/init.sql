@@ -145,7 +145,36 @@ CREATE TABLE payments (
 );
 
 -- ========================================================
--- 9. AUDIT TRIGGERS (updated_at auto-update on all tables)
+-- 9. ACTIVITY LOGS TABLE (Audit Trail for Owner)
+-- ========================================================
+CREATE TABLE activity_logs (
+    log_id SERIAL PRIMARY KEY,
+    user_id INT REFERENCES users(user_id) ON DELETE SET NULL,
+    action VARCHAR(100) NOT NULL,
+    entity_type VARCHAR(50) NOT NULL,
+    entity_id INT,
+    old_value JSONB,
+    new_value JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ========================================================
+-- 10. NOTIFICATIONS TABLE (In-App Alerts for Users)
+-- ========================================================
+CREATE TABLE notifications (
+    notification_id SERIAL PRIMARY KEY,
+    user_id INT REFERENCES users(user_id) ON DELETE CASCADE,
+    title VARCHAR(150) NOT NULL,
+    message TEXT NOT NULL,
+    type VARCHAR(50) NOT NULL DEFAULT 'SYSTEM',
+    is_read BOOLEAN NOT NULL DEFAULT FALSE,
+    linked_entity_type VARCHAR(50),
+    linked_entity_id INT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ========================================================
+-- 11. AUDIT TRIGGERS (updated_at auto-update on all tables)
 -- ========================================================
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
@@ -176,8 +205,14 @@ CREATE TRIGGER update_billing_statements_updated_at BEFORE UPDATE ON billing_sta
 CREATE TRIGGER update_payments_updated_at BEFORE UPDATE ON payments
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+CREATE TRIGGER update_activity_logs_updated_at BEFORE UPDATE ON activity_logs
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_notifications_updated_at BEFORE UPDATE ON notifications
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
 -- ========================================================
--- 10. PERFORMANCE INDEXES
+-- 12. PERFORMANCE INDEXES
 -- ========================================================
 CREATE INDEX idx_beds_status ON beds(status);
 CREATE INDEX idx_beds_room_id ON beds(room_id);
@@ -193,6 +228,10 @@ CREATE INDEX idx_contracts_bed ON contracts(bed_id);
 CREATE INDEX idx_contracts_status ON contracts(status);
 CREATE INDEX idx_rooms_status ON rooms(status);
 CREATE INDEX idx_tenants_status ON tenants(status);
+CREATE INDEX idx_activity_logs_user_id ON activity_logs(user_id);
+CREATE INDEX idx_activity_logs_action ON activity_logs(action);
+CREATE INDEX idx_notifications_user_id ON notifications(user_id);
+CREATE INDEX idx_notifications_is_read ON notifications(is_read);
 
 -- ========================================================
 -- 11. INITIAL TEST SEED DATA (For Local Testing)
