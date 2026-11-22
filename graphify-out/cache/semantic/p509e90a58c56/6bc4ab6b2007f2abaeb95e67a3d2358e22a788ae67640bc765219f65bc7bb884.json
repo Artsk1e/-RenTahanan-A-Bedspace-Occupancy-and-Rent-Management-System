@@ -1,1 +1,0 @@
-{"nodes": [{"id": "opencode_agents_code_reviewer", "label": "Code Reviewer Agent", "file_type": "code", "source_file": ".opencode/agents/code-reviewer.md", "rationale": "Independent, read-only code review for quality, security, and compliance.", "_origin": "semantic"}], "edges": [], "hyperedges": []}
